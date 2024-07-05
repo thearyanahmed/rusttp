@@ -1,7 +1,5 @@
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::thread;
-use std::time::Duration;
 
 fn main() {
     println!("Journey of a thousand miles begins with a single commit.");
@@ -9,6 +7,8 @@ fn main() {
     let addr = "localhost:8000";
 
     let listener = TcpListener::bind(addr).expect("failed to bind to address localhost:8000");
+
+    // map("get","/route","handler(request) -> Response { status: 200, content: '' }")
 
     for incoming_stream in listener.incoming() {
         match incoming_stream {
@@ -18,6 +18,18 @@ fn main() {
             Err(err) => eprint!("connection failed \nerr::{}", err),
         }
     }
+}
+
+struct Request {
+    path: String,
+}
+
+struct Response {
+    status: u8,
+}
+
+struct Router {
+    routes: Vec<(String, String, fn(Request) -> Response)>,
 }
 
 fn handle_incoming_stream(mut stream: TcpStream) {
@@ -33,8 +45,6 @@ fn handle_incoming_stream(mut stream: TcpStream) {
         response.len(),
         response
     );
-
-    thread::sleep(Duration::from_secs(10));
 
     stream
         .write_all(&response.as_bytes())
