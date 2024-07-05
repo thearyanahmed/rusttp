@@ -1,8 +1,5 @@
-use std::{
-    io::{Read, Write},
-    net::{TcpListener, TcpStream},
-};
-
+use std::io::{Read, Write};
+use std::net::{TcpListener, TcpStream};
 use std::thread;
 use std::time::Duration;
 
@@ -15,7 +12,9 @@ fn main() {
 
     for incoming_stream in listener.incoming() {
         match incoming_stream {
-            Ok(valid_stream) => handle_incoming_stream(valid_stream),
+            Ok(valid_stream) => {
+                std::thread::spawn(|| handle_incoming_stream(valid_stream));
+            }
             Err(err) => eprint!("connection failed \nerr::{}", err),
         }
     }
