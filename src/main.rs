@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 
@@ -8,8 +9,6 @@ fn main() {
 
     let listener = TcpListener::bind(addr).expect("failed to bind to address localhost:8000");
 
-    // map("get","/route","handler(request) -> Response { status: 200, content: '' }")
-
     for incoming_stream in listener.incoming() {
         match incoming_stream {
             Ok(valid_stream) => {
@@ -18,18 +17,6 @@ fn main() {
             Err(err) => eprint!("connection failed \nerr::{}", err),
         }
     }
-}
-
-struct Request {
-    path: String,
-}
-
-struct Response {
-    status: u8,
-}
-
-struct Router {
-    routes: Vec<(String, String, fn(Request) -> Response)>,
 }
 
 fn handle_incoming_stream(mut stream: TcpStream) {
