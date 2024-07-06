@@ -1,9 +1,8 @@
 [package]
-name = "rustnet"
+name = "rusttp"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors = ["Aryan Ahmed", "thearyanahmed <thearyanahmed@gmail.com>"]
 
 [dependencies]
 tokio = { version = "1.38.0", features = [
