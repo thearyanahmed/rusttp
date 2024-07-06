@@ -22,7 +22,7 @@ async fn main() -> io::Result<()> {
 }
 
 // Handler function example
-fn handle_hello(_req: Request) -> Response {
+fn handle_hello(_req: &Request) -> Response {
     Response {
         status: 200,
         content: "Hello, world!".to_string(),
