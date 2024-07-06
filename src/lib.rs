@@ -1,2 +1,2 @@
 mod router;
-pub use router::Router;
+pub use router::{Request, Response, Router};
