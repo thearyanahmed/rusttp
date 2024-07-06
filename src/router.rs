@@ -62,3 +62,49 @@ impl Router {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::SocketAddr;
+    use std::str::FromStr;
+
+    #[tokio::test]
+    async fn handle_incoming_stream_processes_valid_request() {
+        let router = Arc::new(Router::new());
+        let addr = SocketAddr::from_str("127.0.0.1:0").unwrap();
+        let listener = TcpListener::bind(addr).await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let mut stream = TcpStream::connect(addr).await.unwrap();
+        stream.write_all(b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n").await.unwrap();
+
+        let (incoming_stream, _) = listener.accept().await.unwrap();
+        router.handle_incoming_stream(incoming_stream).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn handle_incoming_stream_returns_error_for_invalid_request() {
+        let router = Arc::new(Router::new());
+        let addr = SocketAddr::from_str("127.0.0.1:0").unwrap();
+        let listener = TcpListener::bind(addr).await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let mut stream = TcpStream::connect(addr).await.unwrap();
+        stream.write_all(b"INVALID / HTTP/1.1\r\nHost: example.com\r\n\r\n").await.unwrap();
+
+        let (incoming_stream, _) = listener.accept().await.unwrap();
+        assert!(router.handle_incoming_stream(incoming_stream).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn handle_incoming_stream_processes_unknown_route() {
+        let router = Arc::new(Router::new());
+        let addr = SocketAddr::from_str("127.0.0.1:0").unwrap();
+        let listener = TcpListener::bind(addr).await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let mut stream = TcpStream::connect(addr).await.unwrap();
+        stream.write_all(b"GET /unknown HTTP/1.1\r\nHost: example.com\r\n\r\n").await.unwrap();
+
+        let (incoming_stream, _) = listener.accept().await.unwrap();
+        router.handle_incoming_stream(incoming_stream).await.unwrap();
+    }
+}
