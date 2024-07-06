@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt;
+use std::hash::Hash;
 use std::io;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -34,6 +35,7 @@ pub struct Request {
     headers: HashMap<String, String>,
     body: String,
     query_params: HashMap<String, String>,
+    http_version: String,
 }
 
 impl Request {
@@ -56,49 +58,82 @@ impl Request {
     pub fn get_query_param(&self, key: &str) -> Option<&String> {
         self.query_params.get(key)
     }
+
+    pub fn get_http_version(&self) -> String {
+        self.http_version.clone()
+    }
 }
 
 // Request parsing
 impl Request {
-    pub fn from_u8_buffer(buffer: &[u8]) -> io::Result<Request> {
-        let mut request_string = String::from_utf8_lossy(buffer).into_owned();
+    fn parse_path_and_query_params(path_with_query: &str) -> Option<(String, HashMap<String, String>)> {
+        // Replace with your actual logic to parse path and query params
+        // For demonstration, split path and query params by "?" and parse query params
+        let parts: Vec<&str> = path_with_query.splitn(2, '?').collect();
+        let path = parts[0].to_string();
+        
+        if parts.len() > 1 {
+            let query_params_str = parts[1];
+            let query_params: HashMap<String, String> = query_params_str
+                .split('&')
+                .filter_map(|param| {
+                    let mut parts = param.split('=');
+                    let key = parts.next()?.to_string();
+                    let value = parts.next()?.to_string();
+                    Some((key, value))
+                })
+                .collect();
+            Some((path, query_params))
+        } else {
+            Some((path, HashMap::new()))
+        }
+    }
 
-        let filters: [&str; 2] = ["\r\n\r\n", "\0\0\0"];
-
-        for filter in filters {
-            if let Some(index) = request_string.find(filter) {
-                request_string.truncate(index);
-            }
+    fn parse_request_line(request_line: &str) -> Result<(Method, String, HashMap<String,String>, String), std::io::Error> {
+        let parts: Vec<&str> = request_line.split_whitespace().collect();
+        if parts.len() != 3 {
+            return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid request line"));
         }
 
-        let mut lines = request_string.lines();
+        let method_str = parts[0];
+        let path_with_query = parts[1];
+        let http_version = parts[2];
 
-        // Parse request line
-        let request_line = lines
-            .next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Missing request line"))?;
-        let mut parts: std::str::SplitWhitespace = request_line.split_whitespace();
+        let method = Request::parse_method(Some(method_str))?;
 
-        let method = Request::parse_method(parts.next())?;
-        let path_with_query = parts.next().unwrap_or("");
-        let (path, query_params) = Request::parse_path_and_query_params(path_with_query)?;
+        let (path, query_params) = Request::parse_path_and_query_params(path_with_query)
+            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid path"))?;
+
+        Ok((method, path, query_params, http_version.to_string()))
+    }
+
+    pub fn from_parts(request_line: &str, headers_and_body: &[&str]) -> Result<Self, std::io::Error> {
+        let (method, path, query_params, http_version) = Request::parse_request_line(request_line)?;
+        
+        let mut headers = HashMap::new();
+        let mut body = String::new();
+        let mut headers_and_body_iter = headers_and_body.iter().copied();
 
         // Parse headers
-        let mut headers = HashMap::new();
-        for line in lines.by_ref() {
-            if line.is_empty() {
-                break; // End of headers
+        while let Some(header_line) = headers_and_body_iter.next() {
+            if header_line.is_empty() {
+                // Reached end of headers, rest is body
+                break;
             }
-            let mut header_parts = line.splitn(2, ':');
-            if let Some(key) = header_parts.next() {
-                let key = key.trim().to_string();
-                let value = header_parts.next().unwrap_or("").trim().to_string();
-                headers.insert(key, value);
+            if let Some((key, value)) = header_line.split_once(": ") {
+                headers.insert(key.to_string(), value.to_string());
             }
         }
 
         // Parse body
-        let body = lines.collect::<Vec<&str>>().join("\n");
+        for line in headers_and_body_iter {
+            body.push_str(line);
+            body.push('\n'); // Assuming body lines are separated by newline
+        }
+
+        // Extract query params from path
+        let (path, query_params) = Request::parse_path_and_query_params(&path)
+            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid path"))?;
 
         Ok(Request {
             method,
@@ -106,7 +141,29 @@ impl Request {
             headers,
             body,
             query_params,
+            http_version,
         })
+    }
+
+    pub fn from_u8_buffer(buffer: &[u8]) -> io::Result<Request> {
+        let mut request_string = String::from_utf8_lossy(buffer).into_owned();
+
+        if let Some(null_index) = request_string.find('\0') {
+            request_string.truncate(null_index);
+        }
+
+        let parts : Vec<_> = request_string.split("\r\n").collect();
+
+        if parts.len() == 0 {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "missing request line, length is zero"));
+        }
+        
+        if let Some((request_line, rest)) = parts.split_first() {
+            let request = Request::from_parts(request_line, rest)?;
+            return Ok(request);
+        }
+
+        Err(io::Error::new(io::ErrorKind::InvalidData, "missing request line"))
     }
 
     fn parse_method(method_str: Option<&str>) -> io::Result<Method> {
@@ -123,30 +180,6 @@ impl Request {
         }
     }
 
-    fn parse_path_and_query_params(
-        path_with_query: &str,
-    ) -> io::Result<(String, HashMap<String, String>)> {
-        let mut parts = path_with_query.splitn(2, '?');
-        let path = parts.next().unwrap_or("").to_string();
-        let query_params = if let Some(query_part) = parts.next() {
-            Request::parse_query_params(query_part)
-        } else {
-            HashMap::new()
-        };
-        Ok((path, query_params))
-    }
-
-    fn parse_query_params(query_part: &str) -> HashMap<String, String> {
-        let mut query_params = HashMap::new();
-        for pair in query_part.split('&') {
-            if let Some(pos) = pair.find('=') {
-                let key = &pair[..pos];
-                let value = &pair[pos + 1..];
-                query_params.insert(key.to_string(), value.to_string());
-            }
-        }
-        query_params
-    }
 }
 
 #[cfg(test)]

@@ -4,10 +4,10 @@ use std::{fs, io};
 
 #[tokio::main]
 async fn main() -> io::Result<()> {
-    println!("Journey of a thousand miles begins with a single commit.");
-
     let mut router = Router::new();
     router.add_route(Method::GET, "/whoami", who_handler);
+    router.add_route(Method::GET, "/", who_handler);
+    router.add_route(Method::GET, "/index.html", who_handler);
     router.add_route(Method::GET, "/page", page_handler);
     router.add_route(Method::POST, "/say-hi", say_hi_handler);
 
