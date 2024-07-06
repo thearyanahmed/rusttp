@@ -50,9 +50,12 @@ impl Router {
         stream.read(&mut buffer).await?;
 
         let request = Request::from_u8_buffer(&buffer[..])?;
-        let path = &request.path;
+        // let path = &request.get_path();
 
-        if let Some(handler) = self.routes.get(&(request.method.clone(), path.to_string())) {
+        if let Some(handler) = self
+            .routes
+            .get(&(request.get_method(), request.get_path().to_string()))
+        {
             let response = handler(&request); // Pass request by reference
 
             let response_str = format!(

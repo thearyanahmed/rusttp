@@ -11,15 +11,23 @@ pub enum Method {
 }
 
 pub struct Request {
-    pub method: Method,
-    pub path: String,
-    pub headers: HashMap<String, String>,
-    pub body: String,
+    method: Method,
+    path: String,
+    headers: HashMap<String, String>,
+    body: String,
 }
 
 impl Request {
     pub fn get_header(&self, key: String) -> Option<&String> {
         self.headers.get(&key)
+    }
+
+    pub fn get_method(&self) -> Method {
+        self.method.clone()
+    }
+
+    pub fn get_path(&self) -> String {
+        self.path.clone()
     }
 }
 
