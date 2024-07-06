@@ -148,3 +148,70 @@ impl Request {
         query_params
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn from_u8_buffer_parses_valid_request() {
+        let request = b"GET /path?key=value HTTP/1.1\r\nHost: example.com\r\n\r\n";
+        let result = Request::from_u8_buffer(request).unwrap();
+        assert_eq!(result.get_method(), Method::GET);
+        assert_eq!(result.get_path(), "/path");
+        assert_eq!(result.get_header("Host".to_string()), Some(&"example.com".to_string()));
+        assert_eq!(result.get_query_param("key"), Some(&"value".to_string()));
+    }
+
+    #[test]
+    fn from_u8_buffer_handles_missing_request_line() {
+        let request = b"\r\nHost: example.com\r\n\r\n";
+        let result = Request::from_u8_buffer(request);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn from_u8_buffer_handles_unsupported_method() {
+        let request = b"UNSUPPORTED /path HTTP/1.1\r\nHost: example.com\r\n\r\n";
+        let result = Request::from_u8_buffer(request);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn from_u8_buffer_parses_headers_correctly() {
+        let request = b"GET /path HTTP/1.1\r\nHost: example.com\r\nUser-Agent: Test\r\n\r\n";
+        let result = Request::from_u8_buffer(request).unwrap();
+        assert_eq!(result.get_header("Host".to_string()), Some(&"example.com".to_string()));
+        assert_eq!(result.get_header("User-Agent".to_string()), Some(&"Test".to_string()));
+    }
+
+    #[test]
+    fn from_u8_buffer_handles_missing_headers() {
+        let request = b"GET /path HTTP/1.1\r\n\r\n";
+        let result = Request::from_u8_buffer(request).unwrap();
+        assert_eq!(result.get_header("Host".to_string()), None);
+    }
+
+    #[test]
+    fn from_u8_buffer_parses_query_params_correctly() {
+        let request = b"GET /path?key1=value1&key2=value2 HTTP/1.1\r\nHost: example.com\r\n\r\n";
+        let result = Request::from_u8_buffer(request).unwrap();
+        assert_eq!(result.get_query_param("key1"), Some(&"value1".to_string()));
+        assert_eq!(result.get_query_param("key2"), Some(&"value2".to_string()));
+    }
+
+    #[test]
+    fn from_u8_buffer_handles_missing_query_params() {
+        let request = b"GET /path HTTP/1.1\r\nHost: example.com\r\n\r\n";
+        let result = Request::from_u8_buffer(request).unwrap();
+        assert_eq!(result.get_query_param("key"), None);
+    }
+
+    fn test_request_parse_query_params() {
+        let mut expected = HashMap::new();
+        expected.insert("key1".to_string(), "value1".to_string());
+        expected.insert("key2".to_string(), "value2".to_string());
+
+        assert_eq!(Request::parse_query_params("key1=value1&key2=value2"), expected);
+    }
+}
