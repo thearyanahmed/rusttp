@@ -63,9 +63,12 @@ impl Request {
     pub fn from_u8_buffer(buffer: &[u8]) -> io::Result<Request> {
         let mut request_string = String::from_utf8_lossy(buffer).into_owned();
 
-        if let Some(index) = request_string.find("\0\0\0") {
-            // If "\0\0\0" is found, trim the string up to that index
-            request_string.truncate(index);
+        let filters: [&str; 2] = ["\r\n\r\n", "\0\0\0"];
+
+        for filter in filters {
+            if let Some(index) = request_string.find(filter) {
+                request_string.truncate(index);
+            }
         }
 
         let mut lines = request_string.lines();
@@ -74,7 +77,7 @@ impl Request {
         let request_line = lines
             .next()
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Missing request line"))?;
-        let mut parts = request_line.split_whitespace();
+        let mut parts: std::str::SplitWhitespace = request_line.split_whitespace();
 
         let method = Request::parse_method(parts.next())?;
         let path_with_query = parts.next().unwrap_or("");
@@ -115,7 +118,7 @@ impl Request {
             Some("PATCH") => Ok(Method::PATCH),
             _ => Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
-                "Unsupported method not sure why!",
+                "Unsupported method!",
             )),
         }
     }
