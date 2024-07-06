@@ -18,8 +18,16 @@ pub struct Request {
 }
 
 impl Request {
+    pub fn get_header(&self, key: String) -> Option<&String> {
+        self.headers.get(&key)
+    }
+}
+
+// Request parsing
+impl Request {
     pub fn from_u8_buffer(buffer: &[u8]) -> io::Result<Request> {
         let request_string = String::from_utf8_lossy(buffer);
+
         let mut lines = request_string.lines();
 
         // Parse request line

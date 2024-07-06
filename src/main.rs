@@ -21,8 +21,13 @@ async fn main() -> io::Result<()> {
     Ok(())
 }
 
-// Handler function example
-fn handle_hello(_req: &Request) -> Response {
+fn handle_hello(req: &Request) -> Response {
+    if let Some(header_value) = req.get_header("User-Agent".to_string()) {
+        println!("Header 'User-Agent' found with value: {}", header_value);
+    } else {
+        println!("Header 'User-Agent' not found");
+    }
+
     Response {
         status: 200,
         content: "Hello, world!".to_string(),
