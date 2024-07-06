@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt;
 use std::io;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -8,6 +9,19 @@ pub enum Method {
     PUT,
     DELETE,
     PATCH,
+}
+
+impl fmt::Display for Method {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let method_str = match *self {
+            Method::GET => "GET",
+            Method::POST => "POST",
+            Method::PUT => "PUT",
+            Method::DELETE => "DELETE",
+            Method::PATCH => "PATCH",
+        };
+        write!(f, "{}", method_str)
+    }
 }
 
 pub struct Request {
@@ -28,6 +42,10 @@ impl Request {
 
     pub fn get_path(&self) -> String {
         self.path.clone()
+    }
+
+    pub fn get_body(&self) -> String {
+        self.body.clone()
     }
 }
 
