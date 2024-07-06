@@ -1,9 +1,7 @@
-# RustTP
+# rusttp
 
-RustTP is a simple, lightweight HTTP router built in Rust. It uses the Tokio library for asynchronous I/O and can handle multiple concurrent connections.
+rusttp is a simple, lightweight HTTP router built in Rust. It uses the Tokio library for asynchronous I/O and can handle multiple concurrent connections.
 This is a learning project to understand how HTTP servers work and how to build one from scratch. It is not intended for production use.
-
-It is 
 
 ## Features
 
@@ -15,7 +13,7 @@ It is
 
 ## Usage
 
-To use RustTP, you need to create a `Router` instance, add routes to it, and then start the server.
+To use rusttp, you need to create a `Router` instance, add routes to it, and then start the server.
 
 Here's a basic example:
 
@@ -34,7 +32,7 @@ async fn main() -> io::Result<()> {
     let router = Arc::new(router);
 
     router
-        .listen_and_serve("localhost:8000")
+        .listen_and_serve("127.0.0.1:8000")
         .await
         .expect("failed to listen and serve");
 
@@ -50,4 +48,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-RustTP is licensed under the MIT license. Please see the `LICENSE` file for more details.
+rusttp is licensed under the MIT license. Please see the `LICENSE` file for more details.
