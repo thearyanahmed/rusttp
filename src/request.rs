@@ -131,10 +131,6 @@ impl Request {
             body.push('\n'); // Assuming body lines are separated by newline
         }
 
-        // Extract query params from path
-        let (path, query_params) = Request::parse_path_and_query_params(&path)
-            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid path"))?;
-
         Ok(Request {
             method,
             path,
@@ -187,65 +183,74 @@ mod tests {
     use super::*;
 
     #[test]
+    fn parse_path_and_query_params_parses_path_without_query_params_correctly() {
+        let (path, query_params) = Request::parse_path_and_query_params("/path").unwrap();
+        assert_eq!(path, "/path");
+        assert!(query_params.is_empty());
+    }
+
+    #[test]
+    fn parse_path_and_query_params_parses_path_with_query_params_correctly() {
+        let (path, query_params) = Request::parse_path_and_query_params("/path?key=value").unwrap();
+        assert_eq!(path, "/path");
+        assert_eq!(query_params.get("key"), Some(&"value".to_string()));
+    }
+
+    #[test]
+    fn parse_request_line_parses_valid_request_line() {
+        let result = Request::parse_request_line("GET /path HTTP/1.1").unwrap();
+        assert_eq!(result.0, Method::GET);
+        assert_eq!(result.1, "/path");
+        assert!(result.2.is_empty());
+        assert_eq!(result.3, "HTTP/1.1");
+    }
+
+    #[test]
+    fn parse_request_line_returns_error_for_invalid_request_line() {
+        let result = Request::parse_request_line("INVALID /path HTTP/1.1");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn from_parts_parses_valid_parts() {
+        let result = Request::from_parts("GET /path HTTP/1.1", &["Host: example.com", ""]).unwrap();
+        assert_eq!(result.get_method(), Method::GET);
+        assert_eq!(result.get_path(), "/path");
+        assert_eq!(result.get_header("Host".to_string()), Some(&"example.com".to_string()));
+    }
+
+    #[test]
+    fn from_parts_returns_error_for_invalid_parts() {
+        let result = Request::from_parts("INVALID /path HTTP/1.1", &["Host: example.com", ""]);
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn from_u8_buffer_parses_valid_request() {
-        let request = b"GET /path?key=value HTTP/1.1\r\nHost: example.com\r\n\r\n";
+        let request = b"GET /path?key=hello HTTP/1.1\r\nHost: example.com\r\n\r\n";
         let result = Request::from_u8_buffer(request).unwrap();
         assert_eq!(result.get_method(), Method::GET);
         assert_eq!(result.get_path(), "/path");
         assert_eq!(result.get_header("Host".to_string()), Some(&"example.com".to_string()));
-        assert_eq!(result.get_query_param("key"), Some(&"value".to_string()));
+        assert_eq!(result.get_query_param("key"), Some(&"hello".to_string()));
     }
 
     #[test]
-    fn from_u8_buffer_handles_missing_request_line() {
-        let request = b"\r\nHost: example.com\r\n\r\n";
+    fn from_u8_buffer_returns_error_for_invalid_request() {
+        let request = b"INVALID /path HTTP/1.1\r\nHost: example.com\r\n\r\n";
         let result = Request::from_u8_buffer(request);
         assert!(result.is_err());
     }
 
     #[test]
-    fn from_u8_buffer_handles_unsupported_method() {
-        let request = b"UNSUPPORTED /path HTTP/1.1\r\nHost: example.com\r\n\r\n";
-        let result = Request::from_u8_buffer(request);
+    fn parse_method_parses_valid_method() {
+        let result = Request::parse_method(Some("GET")).unwrap();
+        assert_eq!(result, Method::GET);
+    }
+
+    #[test]
+    fn parse_method_returns_error_for_invalid_method() {
+        let result = Request::parse_method(Some("INVALID"));
         assert!(result.is_err());
-    }
-
-    #[test]
-    fn from_u8_buffer_parses_headers_correctly() {
-        let request = b"GET /path HTTP/1.1\r\nHost: example.com\r\nUser-Agent: Test\r\n\r\n";
-        let result = Request::from_u8_buffer(request).unwrap();
-        assert_eq!(result.get_header("Host".to_string()), Some(&"example.com".to_string()));
-        assert_eq!(result.get_header("User-Agent".to_string()), Some(&"Test".to_string()));
-    }
-
-    #[test]
-    fn from_u8_buffer_handles_missing_headers() {
-        let request = b"GET /path HTTP/1.1\r\n\r\n";
-        let result = Request::from_u8_buffer(request).unwrap();
-        assert_eq!(result.get_header("Host".to_string()), None);
-    }
-
-    #[test]
-    fn from_u8_buffer_parses_query_params_correctly() {
-        let request = b"GET /path?key1=value1&key2=value2 HTTP/1.1\r\nHost: example.com\r\n\r\n";
-        let result = Request::from_u8_buffer(request).unwrap();
-        assert_eq!(result.get_query_param("key1"), Some(&"value1".to_string()));
-        assert_eq!(result.get_query_param("key2"), Some(&"value2".to_string()));
-    }
-
-    #[test]
-    fn from_u8_buffer_handles_missing_query_params() {
-        let request = b"GET /path HTTP/1.1\r\nHost: example.com\r\n\r\n";
-        let result = Request::from_u8_buffer(request).unwrap();
-        assert_eq!(result.get_query_param("key"), None);
-    }
-
-    #[test]
-    fn test_request_parse_query_params() {
-        let mut expected = HashMap::new();
-        expected.insert("key1".to_string(), "value1".to_string());
-        expected.insert("key2".to_string(), "value2".to_string());
-
-        assert_eq!(Request::parse_query_params("key1=value1&key2=value2"), expected);
     }
 }

@@ -6,15 +6,13 @@ use std::{fs, io};
 async fn main() -> io::Result<()> {
     let mut router = Router::new();
     router.add_route(Method::GET, "/whoami", who_handler);
-    router.add_route(Method::GET, "/", who_handler);
-    router.add_route(Method::GET, "/index.html", who_handler);
     router.add_route(Method::GET, "/page", page_handler);
     router.add_route(Method::POST, "/say-hi", say_hi_handler);
 
     let router = Arc::new(router);
 
     router
-        .listen_and_serve("localhost:8000")
+        .listen_and_serve("127.0.0.1:8000")
         .await
         .expect("failed to listen and serve");
 
