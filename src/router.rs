@@ -1,5 +1,5 @@
 use crate::request::Method;
-use crate::Request;
+use crate::{Request, Response};
 use std::collections::HashMap;
 use std::io;
 use std::sync::Arc;
@@ -8,11 +8,6 @@ use tokio::net::{TcpListener, TcpStream};
 
 pub struct Router {
     routes: HashMap<(Method, String), Box<dyn Fn(&Request) -> Response + Send + Sync>>,
-}
-
-pub struct Response {
-    pub status: u8,
-    pub content: String,
 }
 
 impl Router {
@@ -50,34 +45,20 @@ impl Router {
         stream.read(&mut buffer).await?;
 
         let request = Request::from_u8_buffer(&buffer[..])?;
-        // let path = &request.get_path();
 
-        if let Some(handler) = self
+        let response = match self
             .routes
             .get(&(request.get_method(), request.get_path().to_string()))
         {
-            let response = handler(&request); // Pass request by reference
+            Some(handler) => handler(&request),
+            None => Response::default_response(),
+        };
 
-            let response_str = format!(
-                "HTTP/1.1 {} OK\r\nContent-Length: {}\r\n\r\n{}\n\n",
-                response.status,
-                response.content.len(),
-                response.content
-            );
-            stream.write_all(response_str.as_bytes()).await?;
-            stream.flush().await?;
-        } else {
-            // Handle 404 Not Found
-            let response_str = format!(
-                "HTTP/1.1 {} OK\r\nContent-Length: {}\r\n\r\n{}\n\n",
-                404,
-                "Not Found".len(),
-                "Not Found"
-            );
+        stream
+            .write_all(response.build_http_response().as_bytes())
+            .await?;
+        stream.flush().await?;
 
-            stream.write_all(response_str.as_bytes()).await?;
-            stream.flush().await?;
-        }
         Ok(())
     }
 }
