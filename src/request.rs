@@ -207,6 +207,7 @@ mod tests {
         assert_eq!(result.get_query_param("key"), None);
     }
 
+    #[test]
     fn test_request_parse_query_params() {
         let mut expected = HashMap::new();
         expected.insert("key1".to_string(), "value1".to_string());
