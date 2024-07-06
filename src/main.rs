@@ -1,5 +1,4 @@
 use rustnet::{Method, Request, Response, Router};
-#[allow(dead_code)]
 use std::io;
 use std::sync::Arc;
 
@@ -10,6 +9,7 @@ async fn main() -> io::Result<()> {
     let mut router = Router::new();
     router.add_route(Method::GET, "/hello", handle_hello);
     router.add_route(Method::POST, "/hello", handle_hello);
+    router.add_route(Method::GET, "/hello/world", handle_hello);
 
     let router = Arc::new(router);
 
@@ -21,9 +21,13 @@ async fn main() -> io::Result<()> {
     Ok(())
 }
 
-fn handle_hello(_req: &Request) -> Response {
-    Response {
-        status: 200,
-        content: "Hello, world!".to_string(),
-    }
+fn handle_hello(req: &Request) -> Response {
+    let mut response = Response::success();
+    response.set_content(format!(
+        "Hello from {} - {}",
+        req.get_method(),
+        req.get_path()
+    ));
+
+    response
 }
