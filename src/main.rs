@@ -3,22 +3,42 @@ use std::io::{self};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
+struct Router {}
+
+impl Router {
+    // it is not public because it's in the same module for this example.
+    fn new() -> Self {
+        Self {}
+    }
+
+    async fn listen_and_serve(&self, addr: &str) -> io::Result<()> {
+        // let addr = "localhost:8000";
+
+        let listener = TcpListener::bind(addr).await?;
+
+        loop {
+            let (socket, _) = listener.accept().await?;
+            tokio::spawn(async move {
+                if let Err(e) = handle_incoming_stream(socket).await {
+                    eprintln!("Failed to handle connection: {}", e);
+                }
+            });
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> io::Result<()> {
     println!("Journey of a thousand miles begins with a single commit.");
 
-    let addr = "localhost:8000";
+    let router = Router::new();
 
-    let listener = TcpListener::bind(addr).await?;
+    router
+        .listen_and_serve("localhost:8000")
+        .await
+        .expect("failed to listen and serve");
 
-    loop {
-        let (socket, _) = listener.accept().await?;
-        tokio::spawn(async move {
-            if let Err(e) = handle_incoming_stream(socket).await {
-                eprintln!("Failed to handle connection: {}", e);
-            }
-        });
-    }
+    Ok(())
 }
 
 async fn handle_incoming_stream(mut stream: TcpStream) -> io::Result<()> {
