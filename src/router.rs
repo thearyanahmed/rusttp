@@ -41,7 +41,7 @@ impl Router {
     }
 
     async fn handle_incoming_stream(&self, mut stream: TcpStream) -> io::Result<()> {
-        let mut buffer = [0; 1024];
+        let mut buffer = [0; 4096];
         stream.read(&mut buffer).await?;
 
         let request = Request::from_u8_buffer(&buffer[..])?;

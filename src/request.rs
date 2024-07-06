@@ -9,6 +9,8 @@ pub enum Method {
     PUT,
     DELETE,
     PATCH,
+    OPTIONS,
+    HEAD,
 }
 
 impl fmt::Display for Method {
@@ -19,6 +21,8 @@ impl fmt::Display for Method {
             Method::PUT => "PUT",
             Method::DELETE => "DELETE",
             Method::PATCH => "PATCH",
+            Method::OPTIONS => "OPTIONS",
+            Method::HEAD => "HEAD",
         };
         write!(f, "{}", method_str)
     }
@@ -29,6 +33,7 @@ pub struct Request {
     path: String,
     headers: HashMap<String, String>,
     body: String,
+    query_params: HashMap<String, String>,
 }
 
 impl Request {
@@ -47,12 +52,21 @@ impl Request {
     pub fn get_body(&self) -> String {
         self.body.clone()
     }
+
+    pub fn get_query_param(&self, key: &str) -> Option<&String> {
+        self.query_params.get(key)
+    }
 }
 
 // Request parsing
 impl Request {
     pub fn from_u8_buffer(buffer: &[u8]) -> io::Result<Request> {
-        let request_string = String::from_utf8_lossy(buffer);
+        let mut request_string = String::from_utf8_lossy(buffer).into_owned();
+
+        if let Some(index) = request_string.find("\0\0\0") {
+            // If "\0\0\0" is found, trim the string up to that index
+            request_string.truncate(index);
+        }
 
         let mut lines = request_string.lines();
 
@@ -63,7 +77,8 @@ impl Request {
         let mut parts = request_line.split_whitespace();
 
         let method = Request::parse_method(parts.next())?;
-        let path = Request::parse_path(parts.next())?;
+        let path_with_query = parts.next().unwrap_or("");
+        let (path, query_params) = Request::parse_path_and_query_params(path_with_query)?;
 
         // Parse headers
         let mut headers = HashMap::new();
@@ -87,6 +102,7 @@ impl Request {
             path,
             headers,
             body,
+            query_params,
         })
     }
 
@@ -99,18 +115,33 @@ impl Request {
             Some("PATCH") => Ok(Method::PATCH),
             _ => Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
-                "Unsupported method",
+                "Unsupported method not sure why!",
             )),
         }
     }
 
-    fn parse_path(path_str: Option<&str>) -> io::Result<String> {
-        let mut path = path_str
-            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Missing path"))?
-            .to_string();
-        if let Some(pos) = path.find(['?', '#'].as_ref()) {
-            path.truncate(pos);
+    fn parse_path_and_query_params(
+        path_with_query: &str,
+    ) -> io::Result<(String, HashMap<String, String>)> {
+        let mut parts = path_with_query.splitn(2, '?');
+        let path = parts.next().unwrap_or("").to_string();
+        let query_params = if let Some(query_part) = parts.next() {
+            Request::parse_query_params(query_part)
+        } else {
+            HashMap::new()
+        };
+        Ok((path, query_params))
+    }
+
+    fn parse_query_params(query_part: &str) -> HashMap<String, String> {
+        let mut query_params = HashMap::new();
+        for pair in query_part.split('&') {
+            if let Some(pos) = pair.find('=') {
+                let key = &pair[..pos];
+                let value = &pair[pos + 1..];
+                query_params.insert(key.to_string(), value.to_string());
+            }
         }
-        Ok(path)
+        query_params
     }
 }

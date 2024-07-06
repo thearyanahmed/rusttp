@@ -33,6 +33,10 @@ impl Response {
     pub fn set_headers(&mut self, headers: HashMap<String, String>) {
         self.headers = headers;
     }
+
+    pub fn set_header(&mut self, key: String, value: String) {
+        self.headers.insert(key, value);
+    }
 }
 
 impl Response {
