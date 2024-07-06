@@ -11,6 +11,8 @@ pub struct Router {
 pub struct Request {
     pub method: Method,
     pub path: String,
+    pub headers: HashMap<String, String>,
+    pub body: String,
 }
 
 pub struct Response {
@@ -61,13 +63,9 @@ impl Router {
         let mut buffer = [0; 1024];
         stream.read(&mut buffer).await?;
 
-        let request_str = String::from_utf8_lossy(&buffer[..]);
-        println!("received request \n{}", request_str);
+        let request = self.parse_request(&buffer[..])?;
 
-        // let request = parse_request(&request_str)?;
-        let request = parse_request(&request_str)?;
-
-        let Request { method, path, .. } = parse_request(&request_str)?;
+        let Request { method, path, .. } = self.parse_request(&buffer[..])?;
 
         if let Some(handler) = self.routes.get(&(method, path.clone())) {
             let response = handler(request);
@@ -89,50 +87,71 @@ impl Router {
                 "Not Found"
             );
 
-            // let response = "HTTP/1.1 404 NOT FOUND\r\n\r\n";
             stream.write_all(response_str.as_bytes()).await?;
             stream.flush().await?;
         }
         Ok(())
     }
-}
 
-// Placeholder for request parsing logic
-fn parse_request(request_str: &str) -> Result<Request, io::Error> {
-    // Implement request parsing logic here based on your actual needs
-    // For simplicity, this example assumes basic parsing to extract method and path
-    let parts: Vec<&str> = request_str
-        .lines()
-        .next()
-        .unwrap_or("")
-        .split(' ')
-        .collect();
+    fn parse_request(&self, buffer: &[u8]) -> io::Result<Request> {
+        let request_string = String::from_utf8_lossy(buffer);
+        let mut lines = request_string.lines();
 
-    if parts.len() < 2 {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "Invalid request format",
-        ));
+        // Parse request line
+        let request_line = lines
+            .next()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Missing request line"))?;
+        let mut parts = request_line.split_whitespace();
+
+        let method = self.parse_method(parts.next())?;
+        let path = self.parse_path(parts.next())?;
+
+        // Parse headers
+        let mut headers = HashMap::new();
+        for line in lines.by_ref() {
+            if line.is_empty() {
+                break; // End of headers
+            }
+            let mut header_parts = line.splitn(2, ':');
+            if let Some(key) = header_parts.next() {
+                let key = key.trim().to_string();
+                let value = header_parts.next().unwrap_or("").trim().to_string();
+                headers.insert(key, value);
+            }
+        }
+
+        // Parse body
+        let body = lines.collect::<Vec<&str>>().join("\n");
+
+        Ok(Request {
+            method,
+            path,
+            headers,
+            body,
+        })
     }
 
-    let method = match parts[0] {
-        "GET" => Method::GET,
-        "POST" => Method::POST,
-        "PUT" => Method::PUT,
-        "DELETE" => Method::DELETE,
-        "PATCH" => Method::PATCH,
-        _ => {
-            return Err(io::Error::new(
+    fn parse_method(&self, method_str: Option<&str>) -> io::Result<Method> {
+        match method_str {
+            Some("GET") => Ok(Method::GET),
+            Some("POST") => Ok(Method::POST),
+            Some("PUT") => Ok(Method::PUT),
+            Some("DELETE") => Ok(Method::DELETE),
+            Some("PATCH") => Ok(Method::PATCH),
+            _ => Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 "Unsupported method",
-            ))
+            )),
         }
-    };
-
-    let mut path = parts[1].to_string();
-    if let Some(pos) = path.find(['?', '#'].as_ref()) {
-        path.truncate(pos);
     }
 
-    Ok(Request { method, path })
+    fn parse_path(&self, path_str: Option<&str>) -> io::Result<String> {
+        let mut path = path_str
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Missing path"))?
+            .to_string();
+        if let Some(pos) = path.find(['?', '#'].as_ref()) {
+            path.truncate(pos);
+        }
+        Ok(path)
+    }
 }

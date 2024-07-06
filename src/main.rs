@@ -9,6 +9,7 @@ async fn main() -> io::Result<()> {
 
     let mut router = Router::new();
     router.add_route(Method::GET, "/hello", handle_hello);
+    router.add_route(Method::POST, "/hello", handle_hello);
 
     let router = Arc::new(router);
 
