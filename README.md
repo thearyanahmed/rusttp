@@ -3,6 +3,8 @@
 rusttp is a simple, lightweight HTTP router built in Rust. It uses the Tokio library for asynchronous I/O and can handle multiple concurrent connections.
 This is a learning project to understand how HTTP servers work and how to build one from scratch. It is not intended for production use.
 
+It is the implementation of [https://thearyanahmed.medium.com/implementing-hypertext-transfer-protocol-with-rust-maybe-f2494281d29c](https://thearyanahmed.medium.com/implementing-hypertext-transfer-protocol-with-rust-maybe-f2494281d29c).
+
 ## Features
 
 - Supports HTTP methods: GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD
