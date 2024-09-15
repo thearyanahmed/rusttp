@@ -32,7 +32,6 @@ fn say_hi_handler(_req: &Request) -> Response {
     response.set_content(
         r#"{ "message": "Hi, So, this is supposed to be a post method!"}"#.to_string(),
     );
-
     response
 }
 
